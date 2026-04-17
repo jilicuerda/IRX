@@ -1,5 +1,5 @@
 import os
-from tkinter import filedialog
+
 from PySide6 import QtWidgets, QtCore, QtGui
 from PIL import Image
 import numpy as np
