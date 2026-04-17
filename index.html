@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>iRX Web Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .box { border: 2px dashed #b30000; padding: 20px; background: white; margin-bottom: 20px; border-radius: 5px;}
+        button { background: #b30000; color: white; padding: 10px 20px; border: none; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h1 style="color: #b30000;">🔬 iRX Laboratory Dashboard</h1>
+    
+    <div class="box">
+        <h3>1. Inputs</h3>
+        <label>Image Dry (TIFF) : </label>
+        <input type="file" id="dryInput" accept=".tif,.tiff"><br><br>
+        <label>Image Wet (TIFF) : </label>
+        <input type="file" id="wetInput" accept=".tif,.tiff">
+    </div>
+
+    <button onclick="lancerCalcul()">Perform Analysis</button>
+
+    <div class="box" id="resultatBox" style="display:none; margin-top:20px;">
+        <h3>Résultats :</h3>
+        <p id="affichageMoyenne"></p>
+        <p><i>Ouvrez la console (F12) pour voir les données du profil envoyées par Python !</i></p>
+    </div>
+
+    <script>
+        async function lancerCalcul() {
+            const dryFile = document.getElementById('dryInput').files[0];
+            const wetFile = document.getElementById('wetInput').files[0];
+
+            if (!dryFile || !wetFile) { alert("Chargez les images !"); return; }
+
+            const formData = new FormData();
+            formData.append("file_dry", dryFile);
+            formData.append("file_wet", wetFile);
+
+            document.getElementById('resultatBox').style.display = "block";
+            document.getElementById('affichageMoyenne').innerText = "Calcul Numpy en cours sur le serveur...";
+
+            try {
+                // On envoie les données à notre fichier main.py !
+                const response = await fetch("/api/compute_mu", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    document.getElementById('affichageMoyenne').innerText = "Moyenne calculée : " + data.moyenne.toFixed(4);
+                    console.log("Profil reçu de Python :", data.profil);
+                } else {
+                    alert("Erreur Python : " + data.message);
+                }
+            } catch (error) {
+                console.error("Erreur réseau :", error);
+            }
+        }
+    </script>
+</body>
+</html>

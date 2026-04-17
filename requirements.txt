@@ -1,5 +1,6 @@
-streamlit
+fastapi
+uvicorn
+python-multipart
 numpy
-matplotlib
 tifffile
 tifftools
