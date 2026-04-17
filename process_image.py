@@ -1,5 +1,4 @@
 import os
-import tkinter
 from tkinter import filedialog
 from PySide6 import QtWidgets, QtCore, QtGui
 from PIL import Image
