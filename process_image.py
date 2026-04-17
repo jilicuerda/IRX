@@ -1,5 +1,4 @@
 import os
-from PySide6 import QtWidgets, QtCore, QtGui
 from PIL import Image
 import numpy as np
 import tifffile as tfl
