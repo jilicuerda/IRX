@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Optional
 import numpy as np
 import io
 
@@ -9,7 +10,6 @@ import process_image as proc
 
 app = FastAPI()
 
-# Sécurité pour autoriser le web à discuter avec Python
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,34 +18,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 1. Quand on tape l'URL, le serveur renvoie la page HTML
 @app.get("/")
 async def serve_webpage():
     return FileResponse("index.html")
 
-# 2. Quand la page web envoie les images, le serveur calcule
-@app.post("/api/compute_mu")
-async def compute_mu_endpoint(file_dry: UploadFile = File(...), file_wet: UploadFile = File(...)):
+# Nouvelle route adaptée aux Phases
+@app.post("/api/process_phases")
+async def process_phases_endpoint(
+    # On utilise List[UploadFile] car le HTML peut envoyer plusieurs fichiers par zone.
+    # Le default=[] permet de ne pas crasher si l'utilisateur laisse une zone vide.
+    images_1p: List[UploadFile] = File(default=[]),
+    images_2p: List[UploadFile] = File(default=[]),
+    images_3pe1: List[UploadFile] = File(default=[]),
+    images_3pe2: List[UploadFile] = File(default=[])
+):
     try:
-        # Lecture des TIFF envoyés par le web
-        content_dry = await file_dry.read()
-        content_wet = await file_wet.read()
+        # --- EXEMPLE D'UTILISATION POUR VOTRE BACKEND ---
+        # 1. On initialise votre classe ProcessImage
+        # image_processor = proc.ProcessImage()
         
-        img_dry = proc.read_tiff(io.BytesIO(content_dry))
-        img_wet = proc.read_tiff(io.BytesIO(content_wet))
+        # 2. On lit la première image 1-Phase (si elle existe) pour l'exemple
+        # if len(images_1p) > 0:
+        #     content = await images_1p[0].read()
+        #     img_array = proc.read_tiff(io.BytesIO(content))
+        #     # Vous pouvez maintenant l'ajouter à image_processor.arrays ...
         
-        # --- PLACEZ VOS CALCULS ICI ---
-        # Exemple simple :
-        diff = img_wet - img_dry 
         
-        # Préparation des données pour le JavaScript
-        profil_horizontal = np.mean(diff, axis=0).tolist()
-        valeur_moyenne = float(np.mean(diff))
-        
+        # Pour l'instant, on renvoie simplement un accusé de réception au frontend
+        # pour prouver que le câblage HTML <-> Python fonctionne parfaitement.
         return JSONResponse(content={
             "status": "success",
-            "moyenne": valeur_moyenne,
-            "profil": profil_horizontal
+            "message": "Fichiers reçus et prêts pour les calculs Numpy.",
+            "counts": {
+                "phase1": len(images_1p),
+                "phase2": len(images_2p),
+                "phase3_e1": len(images_3pe1),
+                "phase3_e2": len(images_3pe2)
+            }
         })
         
     except Exception as e:
