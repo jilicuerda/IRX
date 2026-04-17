@@ -1,23 +1,13 @@
 import os
-from tkinter import filedialog
-from PySide6 import QtWidgets, QtCore, QtGui
-from PIL import Image
 import numpy as np
 import tifffile as tfl
 import tifftools as tft
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import (
-    FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
-from matplotlib.patches import Rectangle
-
-from define_rectangle import DefineRectangle
 
 class ProcessImage:
 
     def __init__(self):
         self.arrays = {}
-        self.drs = []
+        self.drs = [] # Gardé vide pour compatibilité
         self.mu_dict = {}
         self.phil_dict = {}
         self.images_1p = []
@@ -26,7 +16,8 @@ class ProcessImage:
         self.images_3pE2 = []
         self.sat_arrays = {}
         self.sat_arrays3p = {}
-        self.coord = {0:[500, 1200, 100, 100],1:[500, 1100, 100, 100],2:[500, 1000, 100, 100]}
+        # Coordonnées par défaut : [x, y, largeur, hauteur]
+        self.coord = {0:[500, 1200, 100, 100], 1:[500, 1100, 100, 100], 2:[500, 1000, 100, 100]}
 
     def load_image(self, angle, urls, mult_core=1.0, mult_time=1.0):
         x0 = self.coord[1][0]
@@ -37,7 +28,6 @@ class ProcessImage:
         for url in urls:
             name, ext = os.path.splitext(os.path.basename(url))
             
-            # --- CORRECTION MAESTRO : Lecture de la vraie image ---
             try:
                 imgTft = tft.read_tiff(url)
                 nbPage = len(imgTft['ifds'])
@@ -48,9 +38,8 @@ class ProcessImage:
             if nbPage == 1:
                 array = tfl.imread(url)
             elif nbPage == 2:
-                array = tfl.imread(url, key=1) # Page 1 = Vraie image
+                array = tfl.imread(url, key=1) 
             else:
-                # OPTIMISATION 16 BITS : Lecture directe en float16
                 arrayTmp = tfl.imread(url, key=range(1, nbPage)).astype(np.float16)
                 nbImg, nbRow, nbColumn = arrayTmp.shape
                 array = np.zeros((nbRow, nbColumn), dtype=np.float16)
@@ -58,22 +47,18 @@ class ProcessImage:
                     array += arrayTmp[i] / nbImg
                 del arrayTmp
 
-            # --- CORRECTION RGB : Forcer en Noir & Blanc ---
             array = np.squeeze(array)
             if array.ndim >= 3:
                 array = array[:, :, 0] if array.shape[-1] in [3, 4] else array[0, :, :]
 
-            # --- OPTIMISATION 16 BITS (Remplace le 32 bits) ---
             if array.dtype != np.float16:
                 array = array.astype(np.float16)
 
-            # --- ROTATION SANS ROGNAGE ---
             array = np.flipud(array)
             k = int(angle // 90)
             if k != 0:
                 array = np.rot90(array, k=k)
 
-            # --- MULTIPLICATEURS AVEC PROTECTION DES LIMITES ---
             H, W = array.shape
             y0_s, y1_s = max(0, min(y0, H)), max(0, min(y1, H))
             x0_s, x1_s = max(0, min(x0, W)), max(0, min(x1, W))
@@ -87,45 +72,17 @@ class ProcessImage:
             
         return self.arrays
 
-    def create_canvas(self):
-        self.fig_img, self.ax_img = plt.subplots()
-        self.canvas = FigureCanvas(self.fig_img)
-        drs = self._create_rect()
-        return True
-
-    def _create_rect(self):
-        color = ['r', 'g', 'b']
-        for nb in range(len(self.coord)):
-            rect = Rectangle((self.coord[nb][0],self.coord[nb][1]),self.coord[nb][2],self.coord[nb][3],
-                linewidth=1,edgecolor=color[nb],facecolor='None')
-            dr = DefineRectangle(rect)
-            self.ax_img.add_patch(dr.rect)
-            self.drs.append(dr)
-            dr.connect()
-        return self.drs
+    # Note: create_canvas et _create_rect ont été supprimés (inutiles sur le Web)
 
     def get_coordinates(self):
-        i=0
-        for dr in self.drs:
-            x0, y0 = dr.rect.get_xy()
-            x0 = int(round(x0))
-            y0 = int(round(y0))
-            width = int(round(dr.rect.get_width()))
-            height = int(round(dr.rect.get_height()))
-            self.coord[i] = [x0, y0, width, height]
-            i+=1
+        # Sur le web, les coordonnées seront envoyées par le front-end JS.
+        pass
 
     def set_loaded_coordinates(self, coord):
-        i = 0
-        for dr in self.drs:
-            dr.rect.set_x(coord[str(i)][0])
-            dr.rect.set_y(coord[str(i)][1])
-            dr.rect.set_width(coord[str(i)][2])
-            dr.rect.set_height(coord[str(i)][3])
-            i += 1
+        for key, value in coord.items():
+            self.coord[int(key)] = value
 
     def core_rect(self, name):
-        """ PROTECTION ZeroDivisionError ajoutée """
         c = self.coord[0]
         H, W = self.arrays[name].shape
         y0, y1 = max(0, min(c[1], H)), max(0, min(c[1]+c[3], H))
@@ -135,7 +92,6 @@ class ProcessImage:
         return arr
 
     def mu_rect(self, name):
-        """ PROTECTION ZeroDivisionError ajoutée """
         c = self.coord[2]
         H, W = self.arrays[name].shape
         y0, y1 = max(0, min(c[1], H)), max(0, min(c[1]+c[3], H))
